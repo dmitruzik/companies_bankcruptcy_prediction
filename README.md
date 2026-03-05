@@ -9,42 +9,7 @@ This project focuses on predicting company bankruptcy using financial indicators
 - Create a comprehensive dashboard for monitoring company health
 - Develop risk segmentation framework for portfolio management
 
-## 📁 Repository Structure
-bankruptcy-prediction/
-│
-├── datasets/ # All data files
-│ ├── raw/ # Original, unmodified data
-│ │ └── data.csv # Source dataset with 95+ financial indicators
-│ └── processed/ # Cleaned and transformed data
-│ └── bankruptcy_analysis_ready.csv
-│
-├── sql/ # Database setup scripts
-│ ├── 01_create_table.sql # Table creation script
-│ ├── 02_import_data.sql # Data import commands
-│ └── README.md # SQL setup instructions
-│
-├── analysis/ # Exploratory and statistical analysis
-│ ├── 01_exploratory_data_analysis.sql # Initial data exploration
-│ ├── 02_correlation_analysis.sql # Correlation with bankruptcy
-│ ├── 03_key_metrics_kpi.sql # KPI calculations
-│ ├── 04_risk_segmentation.sql # Risk profiling
-│ └── README.md # Analysis methodology
-│
-├── cleaning/ # Data cleaning and preparation
-│ ├── 01_data_cleaning.sql # Handle NULLs and inconsistencies
-│ ├── 02_handle_outliers.sql # Outlier detection and treatment
-│ ├── 03_feature_engineering.sql # Create derived features
-│ └── README.md # Data cleaning approach
-│
-├── dashboards/ # Visualization files
-│ ├── bankruptcy_dashboard.pbix # Power BI dashboard
-│ ├── bankruptcy_dashboard.twb # Tableau dashboard
-│ └── README.md # Dashboard guide
-│
-└── docs/ # Documentation
-├── data_dictionary.md # Column descriptions
-├── methodology.md # Analysis methodology
-└── insights_report.md # Key findings
+
 
 
 ## 📊 Dataset Description
