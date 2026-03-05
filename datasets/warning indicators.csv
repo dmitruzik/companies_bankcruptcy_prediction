@@ -1,0 +1,3 @@
+"indicator_type","company_count","bankrupt_count","bankruptcy_rate","avg_current_ratio","avg_quick_ratio","avg_debt_ratio","avg_roa_pct"
+"Companies with Warning Signs","3511","215","6.12","783252.65","14776416.98","0.14","47.59"
+"Companies with Critical Signs","6818","220","3.23","403344.10","8377823.42","0.11","50.52"

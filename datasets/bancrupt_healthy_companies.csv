@@ -1,0 +1,3 @@
+"company_status","company_count","roa","avg_operating_margin","avg_return_on_assets","avg_current_ratio","avg_quick_ratio","cash_ratio","avg_debt_ratio","avg_debt_to_equity","avg_asset_turnover","avg_cash_flow_to_sales","avg_asset_growth"
+"Healthy Companies","6599","0.5081","0.9988","0.8101","416729.8229","7257160.1871","29899530.2453","0.1107","0.2799","0.1429","0.6715","5531602816.0329"
+"Bankrupt Companies","220","0.4185","0.9987","0.7381","0.0072","41954545.4588","254940909.0937","0.1870","0.2936","0.1040","0.6716","4803016818.1818"
