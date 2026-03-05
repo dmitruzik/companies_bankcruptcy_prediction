@@ -1,0 +1,368 @@
+-- Portfolio Summary Dashboard Metrics
+WITH portfolio_summary AS (
+    SELECT 
+        COUNT(*) as total_companies,
+        SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as bankrupt_companies,
+        SUM(CASE WHEN bankrupt = false THEN 1 ELSE 0 END) as healthy_companies,
+        ROUND(AVG(CASE WHEN bankrupt = false THEN 1.0 ELSE 0 END) * 100, 2) as health_rate_percentage,
+        ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2) as bankruptcy_rate_percentage
+    FROM bankruptcy_prediction
+)
+SELECT 
+    total_companies,
+    healthy_companies,
+    bankrupt_companies,
+    health_rate_percentage || '%' as health_rate,
+    bankruptcy_rate_percentage || '%' as bankruptcy_rate,
+    ROUND(bankrupt_companies * 1.0 / NULLIF(healthy_companies, 0) * 100, 2) || '%' as bankrupt_to_healthy_ratio
+FROM portfolio_summary;
+
+
+
+-- Bancrupt vs Healthy companies
+
+-- Comparative Analysis: Bankrupt vs Healthy Companies
+WITH financial_metrics AS (
+    SELECT 
+        bankrupt,
+        COUNT(*) as company_count,
+        
+        -- Profitability Metrics
+        ROUND(AVG(roa_c_before_interest_depreciation_before_interest)::numeric, 4) as avg_roa,
+        ROUND(AVG(operating_profit_rate)::numeric, 4) as avg_operating_margin,
+        ROUND(AVG(net_income_to_total_assets)::numeric, 4) as avg_return_on_assets,
+        ROUND(AVG(gross_profit_to_sales)::numeric, 4) as avg_gross_margin,
+        
+        -- Liquidity Metrics
+        ROUND(AVG(current_ratio)::numeric, 4) as avg_current_ratio,
+        ROUND(AVG(quick_ratio)::numeric, 4) as avg_quick_ratio,
+        ROUND(AVG(cash_current_liability)::numeric, 4) as avg_cash_ratio,  -- Using cash_current_liability as cash ratio
+        
+        -- Leverage Metrics
+        ROUND(AVG(debt_ratio_percent)::numeric, 4) as avg_debt_ratio,
+        ROUND(AVG(liability_to_equity)::numeric, 4) as avg_debt_to_equity,
+        ROUND(AVG(interest_bearing_debt_interest_rate)::numeric, 4) as avg_cost_of_debt,
+        
+        -- Efficiency Metrics
+        ROUND(AVG(total_asset_turnover)::numeric, 4) as avg_asset_turnover,
+        ROUND(AVG(inventory_turnover_rate_times)::numeric, 4) as avg_inventory_turnover,
+        ROUND(AVG(accounts_receivable_turnover)::numeric, 4) as avg_receivable_turnover,
+        
+        -- Cash Flow Metrics
+        ROUND(AVG(cash_flow_to_sales)::numeric, 4) as avg_cash_flow_to_sales,
+        ROUND(AVG(cash_flow_to_total_assets)::numeric, 4) as avg_cash_flow_to_assets,
+        
+        -- Growth Metrics
+        ROUND(AVG(total_asset_growth_rate)::numeric, 4) as avg_asset_growth,
+        ROUND(AVG(operating_profit_growth_rate)::numeric, 4) as avg_profit_growth
+        
+    FROM bankruptcy_prediction
+    WHERE bankrupt IS NOT NULL
+    GROUP BY bankrupt
+)
+SELECT 
+    CASE WHEN bankrupt = true THEN 'Bankrupt Companies' ELSE 'Healthy Companies' END as company_status,
+    company_count,
+    avg_roa as roa,
+    avg_operating_margin,
+    avg_return_on_assets,
+    avg_current_ratio,
+    avg_quick_ratio,
+    avg_cash_ratio as cash_ratio,
+    avg_debt_ratio,
+    avg_debt_to_equity,
+    avg_asset_turnover,
+    avg_cash_flow_to_sales,
+    avg_asset_growth
+FROM financial_metrics
+ORDER BY bankrupt;
+
+
+-- RISK SEGMENTATION
+
+-- Create risk segments based on key indicators
+WITH risk_segments AS (
+    SELECT 
+        *,
+        CASE 
+            WHEN current_ratio < 1 AND debt_ratio_percent > 70 AND roa_c_before_interest_depreciation_before_interest < 0 THEN 'High Risk'
+            WHEN current_ratio < 1.5 OR debt_ratio_percent > 60 OR roa_c_before_interest_depreciation_before_interest < 0.05 THEN 'Medium Risk'
+            ELSE 'Low Risk'
+        END as risk_category,
+        
+        CASE 
+            WHEN current_ratio >= 2 THEN 'Strong'
+            WHEN current_ratio >= 1 THEN 'Adequate'
+            ELSE 'Weak'
+        END as liquidity_status,
+        
+        CASE 
+            WHEN debt_ratio_percent <= 40 THEN 'Conservative'
+            WHEN debt_ratio_percent <= 60 THEN 'Moderate'
+            ELSE 'Aggressive'
+        END as leverage_profile,
+        
+        CASE 
+            WHEN roa_c_before_interest_depreciation_before_interest >= 0.15 THEN 'High'
+            WHEN roa_c_before_interest_depreciation_before_interest >= 0.05 THEN 'Medium'
+            ELSE 'Low'
+        END as profitability_level
+        
+    FROM bankruptcy_prediction
+)
+SELECT 
+    risk_category,
+    COUNT(*) as company_count,
+    SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as bankrupt_count,
+    ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2) as bankruptcy_rate,
+    ROUND(AVG(current_ratio)::numeric, 2) as avg_current_ratio,
+    ROUND(AVG(debt_ratio_percent)::numeric, 2) as avg_debt_ratio,
+    ROUND(AVG(roa_c_before_interest_depreciation_before_interest)::numeric, 4) as avg_roa
+FROM risk_segments
+GROUP BY risk_category
+ORDER BY 
+    CASE risk_category 
+        WHEN 'High Risk' THEN 1 
+        WHEN 'Medium Risk' THEN 2 
+        WHEN 'Low Risk' THEN 3 
+    END;
+
+-- KPI
+
+-- Main KPI Dashboard Query
+WITH kpi_calcs AS (
+    SELECT 
+        -- Overall Portfolio Metrics
+        COUNT(*) as total_companies,
+        SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as total_bankrupt,
+        SUM(CASE WHEN bankrupt = false THEN 1 ELSE 0 END) as total_healthy,
+        
+        -- Average Metrics
+        AVG(current_ratio) as portfolio_avg_current_ratio,
+        AVG(quick_ratio) as portfolio_avg_quick_ratio,
+        AVG(cash_current_liability) as portfolio_avg_cash_ratio,
+        AVG(debt_ratio_percent) as portfolio_avg_debt_ratio,
+        AVG(liability_to_equity) as portfolio_avg_debt_to_equity,
+        AVG(roa_c_before_interest_depreciation_before_interest) as portfolio_avg_roa,
+        AVG(operating_profit_rate) as portfolio_avg_operating_margin,
+        AVG(net_income_to_total_assets) as portfolio_avg_roa_alt,
+        AVG(total_asset_turnover) as portfolio_avg_asset_turnover,
+        AVG(cash_flow_to_sales) as portfolio_avg_cash_flow_margin,
+        
+        -- Median Metrics (more robust against outliers)
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY current_ratio) as median_current_ratio,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY quick_ratio) as median_quick_ratio,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY debt_ratio_percent) as median_debt_ratio,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY roa_c_before_interest_depreciation_before_interest) as median_roa,
+        
+        -- Standard Deviations (for volatility assessment)
+        STDDEV(current_ratio) as stddev_current_ratio,
+        STDDEV(debt_ratio_percent) as stddev_debt_ratio,
+        STDDEV(roa_c_before_interest_depreciation_before_interest) as stddev_roa,
+        
+        -- Min/Max for ranges
+        MIN(current_ratio) as min_current_ratio,
+        MAX(current_ratio) as max_current_ratio,
+        MIN(roa_c_before_interest_depreciation_before_interest) as min_roa,
+        MAX(roa_c_before_interest_depreciation_before_interest) as max_roa
+        
+    FROM bankruptcy_prediction
+    WHERE bankrupt IS NOT NULL
+)
+SELECT 
+    -- Size Metrics
+    total_companies as "Total Companies",
+    total_healthy as "Healthy Companies",
+    total_bankrupt as "Bankrupt Companies",
+    ROUND((total_bankrupt::numeric / NULLIF(total_companies, 0) * 100), 2) || '%' as "Bankruptcy Rate",
+    
+    -- Liquidity KPIs
+    ROUND(portfolio_avg_current_ratio::numeric, 2) as "Avg Current Ratio",
+    ROUND(portfolio_avg_quick_ratio::numeric, 2) as "Avg Quick Ratio",
+    ROUND(portfolio_avg_cash_ratio::numeric, 4) as "Avg Cash/Liability Ratio",
+    ROUND(median_current_ratio::numeric, 2) as "Median Current Ratio",
+    ROUND(stddev_current_ratio::numeric, 2) as "Current Ratio Volatility",
+    
+    -- Leverage KPIs
+    ROUND(portfolio_avg_debt_ratio::numeric, 2) || '%' as "Avg Debt Ratio",
+    ROUND(portfolio_avg_debt_to_equity::numeric, 2) as "Avg Debt-to-Equity",
+    ROUND(median_debt_ratio::numeric, 2) || '%' as "Median Debt Ratio",
+    
+    -- Profitability KPIs
+    ROUND(portfolio_avg_roa::numeric * 100, 2) || '%' as "Avg ROA (C)",
+    ROUND(portfolio_avg_roa_alt::numeric * 100, 2) || '%' as "Avg Net Income/Assets",
+    ROUND(portfolio_avg_operating_margin::numeric * 100, 2) || '%' as "Avg Operating Margin",
+    ROUND(median_roa::numeric * 100, 2) || '%' as "Median ROA",
+    
+    -- Efficiency KPIs
+    ROUND(portfolio_avg_asset_turnover::numeric, 2) as "Avg Asset Turnover",
+    ROUND(portfolio_avg_cash_flow_margin::numeric * 100, 2) || '%' as "Avg Cash Flow Margin",
+    
+    -- Range Indicators
+    ROUND(min_current_ratio::numeric, 2) || ' - ' || ROUND(max_current_ratio::numeric, 2) as "Current Ratio Range",
+    ROUND(min_roa::numeric * 100, 2) || '% - ' || ROUND(max_roa::numeric * 100, 2) || '%' as "ROA Range"
+    
+FROM kpi_calcs;
+
+
+-- EARLY WARNING INDICATORS
+
+-- Identify key early warning indicators
+WITH early_warning_metrics AS (
+    SELECT 
+        -- Define warning thresholds based on statistical distributions
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY current_ratio) as warning_current_ratio,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY debt_ratio_percent) as warning_debt_ratio,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY roa_c_before_interest_depreciation_before_interest) as warning_roa,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY quick_ratio) as warning_quick_ratio,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY liability_to_equity) as warning_leverage,
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY cash_flow_to_sales) as warning_cash_flow,
+        AVG(current_ratio) - 1.5 * STDDEV(current_ratio) as extreme_current_ratio
+    FROM bankruptcy_prediction
+    WHERE bankrupt IS NOT NULL
+)
+SELECT 
+    'Companies with Warning Signs' as indicator_type,
+    COUNT(*) as company_count,
+    SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as bankrupt_count,
+    ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2) as bankruptcy_rate,
+    ROUND(AVG(current_ratio)::numeric, 2) as avg_current_ratio,
+    ROUND(AVG(quick_ratio)::numeric, 2) as avg_quick_ratio,
+    ROUND(AVG(debt_ratio_percent)::numeric, 2) as avg_debt_ratio,
+    ROUND(AVG(roa_c_before_interest_depreciation_before_interest)::numeric * 100, 2) as avg_roa_pct
+FROM bankruptcy_prediction
+WHERE 
+    current_ratio < (SELECT warning_current_ratio FROM early_warning_metrics)
+    OR debt_ratio_percent > (SELECT warning_debt_ratio FROM early_warning_metrics)
+    OR roa_c_before_interest_depreciation_before_interest < (SELECT warning_roa FROM early_warning_metrics)
+    OR quick_ratio < (SELECT warning_quick_ratio FROM early_warning_metrics)
+
+UNION ALL
+
+SELECT 
+    'Companies with Critical Signs',
+    COUNT(*),
+    SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END),
+    ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2),
+    ROUND(AVG(current_ratio)::numeric, 2),
+    ROUND(AVG(quick_ratio)::numeric, 2),
+    ROUND(AVG(debt_ratio_percent)::numeric, 2),
+    ROUND(AVG(roa_c_before_interest_depreciation_before_interest)::numeric * 100, 2)
+FROM bankruptcy_prediction
+WHERE 
+    current_ratio < 1  -- Current ratio below 1 (can't cover short-term obligations)
+    OR quick_ratio < 0.5  -- Quick ratio very low
+    OR debt_ratio_percent > 80  -- More than 80% debt
+    OR roa_c_before_interest_depreciation_before_interest < -0.1  -- Highly negative ROA
+    OR cash_flow_to_sales < -0.1;  -- Negative cash flow
+
+-- TIME BASED TRENDS
+
+-- Note: This assumes you have a date column. If not, we can analyze by value ranges
+WITH value_distribution AS (
+    SELECT 
+        CASE 
+            WHEN roa_c_before_interest_depreciation_before_interest < -0.1 THEN 'Highly Negative (< -10%)'
+            WHEN roa_c_before_interest_depreciation_before_interest < 0 THEN 'Negative (0% to -10%)'
+            WHEN roa_c_before_interest_depreciation_before_interest < 0.1 THEN 'Low (0-10%)'
+            WHEN roa_c_before_interest_depreciation_before_interest < 0.2 THEN 'Moderate (10-20%)'
+            ELSE 'High (> 20%)'
+        END as roa_range,
+        
+        CASE 
+            WHEN current_ratio < 0.5 THEN 'Critical (< 0.5)'
+            WHEN current_ratio < 1 THEN 'Poor (0.5-1)'
+            WHEN current_ratio < 1.5 THEN 'Adequate (1-1.5)'
+            WHEN current_ratio < 2 THEN 'Good (1.5-2)'
+            ELSE 'Excellent (> 2)'
+        END as liquidity_range,
+        
+        bankrupt
+    FROM bankruptcy_prediction
+)
+SELECT 
+    roa_range,
+    COUNT(*) as total_companies,
+    SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as bankrupt_companies,
+    ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2) as bankruptcy_rate
+FROM value_distribution
+GROUP BY roa_range
+ORDER BY 
+    CASE roa_range
+        WHEN 'Highly Negative (< -10%)' THEN 1
+        WHEN 'Negative (0% to -10%)' THEN 2
+        WHEN 'Low (0-10%)' THEN 3
+        WHEN 'Moderate (10-20%)' THEN 4
+        WHEN 'High (> 20%)' THEN 5
+    END;
+
+-- DASHBOARD READY SUMMARY
+
+-- Create summary tables optimized for dashboard queries
+CREATE OR REPLACE VIEW dashboard_company_summary AS
+SELECT 
+    -- Company Identifier (if you have one, otherwise use row_number)
+    ROW_NUMBER() OVER () as company_id,
+    
+    -- Status
+    bankrupt,
+    
+    -- Risk Category
+    CASE 
+        WHEN current_ratio < 1 AND debt_ratio_percent > 70 AND roa_c_before_interest_depreciation_before_interest < 0 THEN 'High Risk'
+        WHEN current_ratio < 1.5 OR debt_ratio_percent > 60 OR roa_c_before_interest_depreciation_before_interest < 0.05 THEN 'Medium Risk'
+        ELSE 'Low Risk'
+    END as risk_level,
+    
+    -- Key Metrics
+    ROUND(current_ratio::numeric, 2) as current_ratio,
+    ROUND(quick_ratio::numeric, 2) as quick_ratio,
+    ROUND(cash_current_liability::numeric, 4) as cash_to_liability,
+    ROUND(debt_ratio_percent::numeric, 2) as debt_ratio_pct,
+    ROUND(roa_c_before_interest_depreciation_before_interest::numeric * 100, 2) as roa_pct,
+    ROUND(operating_profit_rate::numeric * 100, 2) as operating_margin_pct,
+    ROUND(net_income_to_total_assets::numeric * 100, 2) as return_on_assets_pct,
+    ROUND(cash_flow_to_sales::numeric * 100, 2) as cash_flow_margin_pct,
+    ROUND(total_asset_turnover::numeric, 2) as asset_turnover,
+    ROUND(liability_to_equity::numeric, 2) as debt_to_equity,
+    ROUND(inventory_turnover_rate_times::numeric, 2) as inventory_turnover,
+    ROUND(accounts_receivable_turnover::numeric, 2) as receivables_turnover,
+    
+    -- Flags for quick filtering
+    CASE WHEN current_ratio < 1 THEN 1 ELSE 0 END as low_liquidity_flag,
+    CASE WHEN quick_ratio < 0.5 THEN 1 ELSE 0 END as critical_liquidity_flag,
+    CASE WHEN debt_ratio_percent > 70 THEN 1 ELSE 0 END as high_leverage_flag,
+    CASE WHEN roa_c_before_interest_depreciation_before_interest < 0 THEN 1 ELSE 0 END as unprofitable_flag,
+    CASE WHEN cash_flow_to_sales < 0 THEN 1 ELSE 0 END as negative_cash_flow_flag,
+    
+    -- Count of warning flags
+    (CASE WHEN current_ratio < 1 THEN 1 ELSE 0 END +
+     CASE WHEN quick_ratio < 0.5 THEN 1 ELSE 0 END +
+     CASE WHEN debt_ratio_percent > 70 THEN 1 ELSE 0 END +
+     CASE WHEN roa_c_before_interest_depreciation_before_interest < 0 THEN 1 ELSE 0 END +
+     CASE WHEN cash_flow_to_sales < 0 THEN 1 ELSE 0 END) as warning_flag_count
+     
+FROM bankruptcy_prediction
+WHERE bankrupt IS NOT NULL;
+
+-- Test the view
+SELECT * FROM dashboard_company_summary LIMIT 20;
+
+-- Summary by risk level
+SELECT 
+    risk_level,
+    COUNT(*) as company_count,
+    SUM(CASE WHEN bankrupt = true THEN 1 ELSE 0 END) as bankrupt_count,
+    ROUND(AVG(CASE WHEN bankrupt = true THEN 1.0 ELSE 0 END) * 100, 2) as bankruptcy_rate,
+    ROUND(AVG(warning_flag_count), 2) as avg_warning_flags,
+    ROUND(AVG(current_ratio), 2) as avg_current_ratio,
+    ROUND(AVG(debt_ratio_pct), 2) as avg_debt_ratio,
+    ROUND(AVG(roa_pct), 2) as avg_roa_pct
+FROM dashboard_company_summary
+GROUP BY risk_level
+ORDER BY 
+    CASE risk_level 
+        WHEN 'High Risk' THEN 1 
+        WHEN 'Medium Risk' THEN 2 
+        WHEN 'Low Risk' THEN 3 
+    END;
