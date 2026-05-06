@@ -117,6 +117,10 @@ Enhancing visualization techniques
 
 Updating documentation
 
+Dashboard
+<img width="1171" height="658" alt="dashboard" src="https://github.com/user-attachments/assets/11f93c29-9eb1-42fc-afdd-7e3d99c7be9c" />
+
+
 📝 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
